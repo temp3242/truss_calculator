@@ -2,7 +2,7 @@
 Calculadora de forças de treliças usando a biblioteca anaStruct.
 
 ## Descrição
-Este código calcula as forças de reação em apoios não livres e as forças internas de cada elemento (Componentes x,y e o módulo orientado (<b>"+"</b> => Tração, <b>"-"</b> => Compressão))
+Este código calcula as forças de reação em apoios não livres e as forças internas de cada elemento (Componentes x,y e o módulo orientado (<b>" + "</b> => Tração, <b>" - "</b> => Compressão))
 
 ## Setup
 
