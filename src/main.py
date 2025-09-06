@@ -4,7 +4,7 @@
 #
 # Para a disciplina de Mecânica para Engenharia da Computação
 #
-# Profressor Hugo Cavalcante
+# Professor Hugo Cavalcante
 
 # Centro de Informática (CI) - UFPB - 2025.1
 
@@ -114,7 +114,7 @@ with open(find("especificacoes.txt", path)) as f:
         Fx = N * math.cos(alpha)
         Fy = N * math.sin(alpha)
 
-        print(f"{Fx:.1f}, {Fy:.1f}, {N:.1f}")
+        print(f"{Fx:.1f}; {Fy:.1f}; {N:.1f}")
 
     # Fechando o arquivo "especificacoes.txt"
     f.close()
