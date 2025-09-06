@@ -9,112 +9,135 @@
 # Centro de Informática (CI) - UFPB - 2025.1
 
 
-from anastruct import SystemElements, Vertex
-import matplotlib.pyplot as plt
-from anastruct.fem.plotter import element
-import math
-import os
-
 from pathlib import Path
+import os
+import math
+import matplotlib.pyplot as plt
+from anastruct import SystemElements, Vertex
 
+
+OUTPUT = True  # Set to False to skip creating visualizations
 path = Path.cwd().parent
 
-output = True  # Caso não se deseje a criação das visualizações do sistema, mude a variável para "False"
 
-if output:
-    Path("../out").mkdir(parents=True, exist_ok=True)
+def ensure_out_dir(enabled: bool) -> None:
+    if enabled:
+        Path("../out").mkdir(parents=True, exist_ok=True)
 
 
-# Função para achar um arquivo em um determinado diretório
-def find(name: str, path: str) -> str:
-    for root, dirs, files in os.walk(path):
+def find(name: str, search_path: str) -> str | None:
+    for root, _, files in os.walk(search_path):
         if name in files:
             return os.path.join(root, name)
+    return None
 
+
+def read_vertices(f, count: int) -> list[Vertex]:
+    vertices: list[Vertex] = []
+    for _ in range(count):
+        params = f.readline().rstrip().split("; ")
+        vertices.append(Vertex(float(params[1]), float(params[2])))
+    return vertices
 
 ss = SystemElements()
 
-with open(find("especificacoes.txt", path)) as f:
-    vertices = []
-    non_free_pins = []
+def main() -> None:
+    # Verificando se o arquivo de especificações existe
+    if find("especificacoes.txt", path) is None:
+        print("Arquivo 'especificacoes.txt' não encontrado.")
+        return
+    
+    with open(find("especificacoes.txt", path)) as f:
+        
+        # Garantindo que o diretório de saída exista
+        ensure_out_dir(OUTPUT)
+        
+        non_free_pins = []
+        node_ids = []
 
-    line = f.readline().rstrip()
-    vertices_elements_num = list(map(int, line.split('; ')))
+        # Lendo o número de nós (vértices)
+        line = f.readline().rstrip()
+        vertices_num = list(map(int, line.split('; ')))[0]
 
-    # Lendo o número de nós (apoios) e elementos
-    for _ in range(vertices_elements_num[0]):
-        params = f.readline().rstrip().split('; ')
-        vertices.append(Vertex(float(params[1]), float(params[2])))
+        # Criando os nós (vértices)
+        vertices = read_vertices(f, vertices_num)
+        
+        # Criando os elementos (ligações entre os nós)
+        # (nesse caso, os elemento são do tipo treliça, pois não há tranmissão de momento)
+        for i in range(vertices_num):
+            line = list(map(int, f.readline().rstrip().split('; ')))
+            for j in range(i + 1, vertices_num):
+                if line[j] == 1:
+                    ss.add_truss_element([vertices[i], vertices[j]])
+                    
+        for v in vertices:
+            node_ids.append(ss.find_node_id(v))
 
-    # Criando os elementos (ligações entre os nós)
-    # (nesse caso, os elemento são do tipo treliça, pois não há tranmissão de momento)
-    for i in range(len(vertices)):
-        line = list(map(int, f.readline().rstrip().split('; ')))
-        for j in range(i + 1, len(vertices)):
-            if line[j] == 1:
-                ss.add_truss_element([vertices[i], vertices[j]])
+        # Adicionando as forças nos nós
+        for i in range(vertices_num):
+            line = list(map(float, f.readline().rstrip().split('; ')))
+            if line[0] != 0:
+                ss.point_load(node_ids[i], Fx=line[0])
+            if line[1] != 0:
+                ss.point_load(node_ids[i], Fy=line[1])
 
-    # Adicionando as forças nos nós
-    for v in vertices:
-        line = list(map(float, f.readline().rstrip().split('; ')))
-        if line[0] != 0:
-            ss.point_load(ss.find_node_id(v), Fx=line[0])
-        if line[1] != 0:
-            ss.point_load(ss.find_node_id(v), Fy=line[1])
+        # Adicionando os vículos dos nós (tipos de apoio)
+        # Os tipos podem ser: Nó Livre, Pino, Rolete e Apoio Lateral
+        for i in range(vertices_num):
+            pin_type = f.readline().rstrip()
+            if pin_type == 'P':
+                ss.add_support_hinged(node_ids[i])
+                non_free_pins.append(node_ids[i])
+            elif pin_type == 'X':
+                ss.add_support_roll(node_ids[i], direction=1)
+                non_free_pins.append(node_ids[i])
+            elif pin_type == 'Y':
+                ss.add_support_roll(node_ids[i], direction=2)
+                non_free_pins.append(node_ids[i])
 
-    # Adicionando os vículos dos nós (tipos de apoio)
-    # Os tipos podem ser: Nó Livre, Pino, Rolete e Apoio Lateral
-    for v in vertices:
-        pin_type = f.readline().rstrip()
-        if pin_type == 'P':
-            ss.add_support_hinged(ss.find_node_id(v))
-            non_free_pins.append(ss.find_node_id(v))
-        elif pin_type == 'X':
-            ss.add_support_roll(ss.find_node_id(v), direction=1)
-            non_free_pins.append(ss.find_node_id(v))
-        elif pin_type == 'Y':
-            ss.add_support_roll(ss.find_node_id(v), direction=2)
-            non_free_pins.append(ss.find_node_id(v))
+        
+        ss.solve(max_iter=10000)
 
-    #
-    ss.solve(max_iter=10000)
+        if OUTPUT:
+            # Visualização da estrutura com a(s) força(s) aplicada(s)
+            ss.show_structure(show=False)
+            plt.title('Estrutura')
+            plt.savefig('../out/estrutura.png')
+            plt.close('all')
 
-    if output:
-        # Visualização da estrutura com a(s) força(s) aplicada(s)
-        ss.show_structure(show=False)
-        plt.title('Estrutura')
-        plt.savefig('../out/estrutura.png')
+            # Visualização das forças de reação
+            ss.show_reaction_force(show=False)
+            plt.title('Forças de Reação')
+            plt.savefig('../out/reacao.png')
+            plt.close('all')
 
-        # Visualização das forças de reação
-        ss.show_reaction_force(show=False)
-        plt.title('Forças de Reação')
-        plt.savefig('../out/reacao.png')
+            # Visualização das forças axiais
+            ss.show_axial_force(show=False)
+            plt.title('Forças axiais')
+            plt.savefig('../out/forcas_axiais.png')
+            plt.close('all')
 
-        # Visualização das forças axiais
-        ss.show_axial_force(show=False)
-        plt.title('Forças axiais')
-        plt.savefig('../out/forcas_axiais.png')
+            # Visualização do deslocamento
+            ss.show_displacement(show=False)
+            plt.title('Deslocamento')
+            plt.savefig('../out/deslocamento.png')
+            plt.close('all')
 
-        # Visualização do deslocamento
-        ss.show_displacement(show=False)
-        plt.title('Deslocamento')
-        plt.savefig('../out/deslocamento.png')
+        # Printando as forças nos nós/apoios não-livres
+        for v in non_free_pins:
+            results = ss.get_node_results_system(v)
+            print(f'{round(results['Fx'], 1) + 0}; {round(results['Fy'], 1) + 0}')
 
-    # Printando as forças nos nós/apoios não-livres
-    for v in non_free_pins:
-        results = ss.get_node_results_system(v)
-        print(f'{round(results['Fx'], 1) + 0}; {round(results['Fy'], 1) + 0}')
+        # Pritando as forças internas dos elementos
+        results = ss.get_element_results()
+        for e in results:
+            alpha = e['alpha']
+            N = -float(e['Nmin'])  # ou Nmax
 
-    # Pritando as forças internas dos elementos
-    results = ss.get_element_results()
-    for e in results:
-        alpha = e['alpha']
-        N = -float(e['Nmin'])  # ou Nmax
+            Fx = N * math.cos(alpha)
+            Fy = N * math.sin(alpha)
 
-        Fx = N * math.cos(alpha)
-        Fy = N * math.sin(alpha)
-
-        print(f"{Fx:.1f}; {Fy:.1f}; {N:.1f}")
-
-    # Fechando o arquivo "especificacoes.txt"
-    f.close()
+            print(f"{Fx:.1f}; {Fy:.1f}; {N:.1f}")
+            
+if __name__ == "__main__":
+    main()
