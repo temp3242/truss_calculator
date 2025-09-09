@@ -9,12 +9,12 @@
 # Centro de Informática (CI) - UFPB - 2025.1
 
 
-from pathlib import Path
-import os
 import math
+import os
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 from anastruct import SystemElements, Vertex
-
 
 OUTPUT = True  # Set to False to skip creating visualizations
 path = Path.cwd().parent
@@ -79,7 +79,7 @@ def main() -> None:
             if line[0] != 0:
                 ss.point_load(node_ids[i], Fx=line[0])
             if line[1] != 0:
-                ss.point_load(node_ids[i], Fy=line[1])
+                ss.point_load(node_ids[i], Fy=-line[1])
 
         # Adicionando os vículos dos nós (tipos de apoio)
         # Os tipos podem ser: Nó Livre, Pino, Rolete e Apoio Lateral
@@ -126,7 +126,7 @@ def main() -> None:
         # Printando as forças nos nós/apoios não-livres
         for v in non_free_pins:
             results = ss.get_node_results_system(v)
-            print(f'{round(results['Fx'], 1) + 0}; {round(results['Fy'], 1) + 0}')
+            print(f'{round(-results['Fx'], 1) + 0}; {round(-results['Fy'], 1) + 0}')
 
         # Pritando as forças internas dos elementos
         results = ss.get_element_results()
@@ -137,7 +137,7 @@ def main() -> None:
             Fx = N * math.cos(alpha)
             Fy = N * math.sin(alpha)
 
-            print(f"{Fx:.1f}; {Fy:.1f}; {N:.1f}")
+            print(f"{round(Fx, 1) + 0}; {round(Fy, 1) + 0}; {round(-N, 1) + 0}")
             
 if __name__ == "__main__":
     main()
