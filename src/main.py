@@ -21,8 +21,7 @@ path = Path(__file__).parent.parent.resolve()
 
 def ensure_out_dir(enabled: bool) -> None:
     if enabled:
-        Path(str(os.join(path, "out"))).mkdir(parents=True, exist_ok=True)
-        out_folder = os.join(path, "out")
+        Path(str(os.path.join(path, "out"))).mkdir(parents=True, exist_ok=True)
 
 
 def find(name: str, search_path: str) -> str | None:
@@ -101,7 +100,7 @@ def main() -> None:
         if OUTPUT:
             # Visualização da estrutura com a(s) força(s) aplicada(s)
             
-            out_folder = os.join(path, "out")
+            out_folder = os.path.join(path, "out")
             
             ss.show_structure(show=False)
             plt.title('Estrutura')
