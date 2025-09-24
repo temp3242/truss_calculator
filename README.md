@@ -9,7 +9,7 @@ Este código calcula as forças de reação em apoios não livres e as forças i
  - ### Crie o ambiente virtual
         python3 -m venv .venv
  - ### Instale as dependencias
-        .venv/bin/pip3 install -r requeriments.txt
+        .venv/bin/pip3 install -r requirements.txt
 
 ## Rodando o programa
     .venv/bin/python src/main.py

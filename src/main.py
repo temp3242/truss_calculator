@@ -17,12 +17,12 @@ import matplotlib.pyplot as plt
 from anastruct import SystemElements, Vertex
 
 OUTPUT = True  # Set to False to skip creating visualizations
-path = Path.cwd().parent
-
+path = Path(__file__).parent.parent.resolve()
 
 def ensure_out_dir(enabled: bool) -> None:
     if enabled:
-        Path("../out").mkdir(parents=True, exist_ok=True)
+        Path(str(os.join(path, "out"))).mkdir(parents=True, exist_ok=True)
+        out_folder = os.join(path, "out")
 
 
 def find(name: str, search_path: str) -> str | None:
@@ -100,27 +100,30 @@ def main() -> None:
 
         if OUTPUT:
             # Visualização da estrutura com a(s) força(s) aplicada(s)
+            
+            out_folder = os.join(path, "out")
+            
             ss.show_structure(show=False)
             plt.title('Estrutura')
-            plt.savefig('../out/estrutura.png')
+            plt.savefig(out_folder + '/estrutura.png')
             plt.close('all')
 
             # Visualização das forças de reação
             ss.show_reaction_force(show=False)
             plt.title('Forças de Reação')
-            plt.savefig('../out/reacao.png')
+            plt.savefig(out_folder + '/reacao.png')
             plt.close('all')
 
             # Visualização das forças axiais
             ss.show_axial_force(show=False)
             plt.title('Forças axiais')
-            plt.savefig('../out/forcas_axiais.png')
+            plt.savefig(out_folder + '/forcas_axiais.png')
             plt.close('all')
 
             # Visualização do deslocamento
             ss.show_displacement(show=False)
             plt.title('Deslocamento')
-            plt.savefig('../out/deslocamento.png')
+            plt.savefig(out_folder + '/deslocamento.png')
             plt.close('all')
 
         # Printando as forças nos nós/apoios não-livres
