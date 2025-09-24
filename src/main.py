@@ -75,10 +75,12 @@ def main() -> None:
         # Adicionando as forças nos nós
         for i in range(vertices_num):
             line = list(map(float, f.readline().rstrip().split('; ')))
-            if line[0] != 0:
+            if line[0] != 0 and line[1] != 0:
+                ss.point_load(node_ids[i], Fx=line[0], Fy=line[1])
+            elif line[0] != 0:
                 ss.point_load(node_ids[i], Fx=line[0])
-            if line[1] != 0:
-                ss.point_load(node_ids[i], Fy=-line[1])
+            elif line[1] != 0:
+                ss.point_load(node_ids[i], Fy=line[1])
 
         # Adicionando os vículos dos nós (tipos de apoio)
         # Os tipos podem ser: Nó Livre, Pino, Rolete e Apoio Lateral
