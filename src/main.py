@@ -45,12 +45,12 @@ def main() -> None:
     if find("especificacoes.txt", path) is None:
         print("Arquivo 'especificacoes.txt' não encontrado.")
         return
-    
+
     with open(find("especificacoes.txt", path)) as f:
-        
+
         # Garantindo que o diretório de saída exista
         ensure_out_dir(OUTPUT)
-        
+
         non_free_pins = []
         node_ids = []
 
@@ -60,30 +60,41 @@ def main() -> None:
 
         # Criando os nós (vértices)
         vertices = read_vertices(f, vertices_num)
-        
+
+        # Lendo as especificações do material
+        line = f.readlines()
+        young_modulus = float(line[vertices_num * 3])
+        diameter = float(line[vertices_num * 3 + 1])
+        cross_section_area = math.pi * (diameter / 2) ** 2
+        ea = young_modulus * cross_section_area
+        moment_of_inertia = (math.pi / 4) * (diameter / 2)**4
+        ei = young_modulus * moment_of_inertia
+
         # Criando os elementos (ligações entre os nós)
         # (nesse caso, os elemento são do tipo treliça, pois não há tranmissão de momento)
         for i in range(vertices_num):
-            line = list(map(int, f.readline().rstrip().split('; ')))
+            connections = list(map(int, line[i].rstrip().split('; ')))
             for j in range(i + 1, vertices_num):
-                if line[j] == 1:
-                    ss.add_truss_element([vertices[i], vertices[j]])
-                    
+                if connections[j] == 1:
+                    ss.add_truss_element([vertices[i], vertices[j]], EA=ea)
+
         for v in vertices:
             node_ids.append(ss.find_node_id(v))
 
         # Adicionando as forças nos nós
         for i in range(vertices_num):
-            line = list(map(float, f.readline().rstrip().split('; ')))
-            if line[0] != 0:
-                ss.point_load(node_ids[i], Fx=line[0])
-            if line[1] != 0:
-                ss.point_load(node_ids[i], Fy=-line[1])
+            force_line = list(map(float, line[i + vertices_num].rstrip().split('; ')))
+            if force_line[0] != 0 and force_line[1] != 0:
+                ss.point_load(node_ids[i], Fx=force_line[0], Fy=force_line[1])
+            elif force_line[0] != 0:
+                ss.point_load(node_ids[i], Fx=force_line[0])
+            elif force_line[1] != 0:
+                ss.point_load(node_ids[i], Fy=force_line[1])
 
         # Adicionando os vículos dos nós (tipos de apoio)
         # Os tipos podem ser: Nó Livre, Pino, Rolete e Apoio Lateral
         for i in range(vertices_num):
-            pin_type = f.readline().rstrip()
+            pin_type = line[i + vertices_num * 2].rstrip()
             if pin_type == 'P':
                 ss.add_support_hinged(node_ids[i])
                 non_free_pins.append(node_ids[i])
@@ -94,14 +105,14 @@ def main() -> None:
                 ss.add_support_roll(node_ids[i], direction=2)
                 non_free_pins.append(node_ids[i])
 
-        
+
         ss.solve(max_iter=10000)
 
         if OUTPUT:
             # Visualização da estrutura com a(s) força(s) aplicada(s)
-            
+
             out_folder = os.path.join(path, "out")
-            
+
             ss.show_structure(show=False)
             plt.title('Estrutura')
             plt.savefig(out_folder + '/estrutura.png')
@@ -124,13 +135,21 @@ def main() -> None:
             plt.title('Deslocamento')
             plt.savefig(out_folder + '/deslocamento.png')
             plt.close('all')
+            
+            # Visualização da deformação
+            ss.show_bending_moment(show=False)
+            plt.title('Deformação (Momento Fletor)')
+            plt.savefig(out_folder + '/deformacao.png')
+            plt.close('all')
 
         # Printando as forças nos nós/apoios não-livres
+        print("Forças de reação:")
         for v in non_free_pins:
             results = ss.get_node_results_system(v)
-            print(f'{round(-results['Fx'], 1) + 0}; {round(-results['Fy'], 1) + 0}')
+            print(f"  Nó {v}: Fx={round(-results['Fx'], 1) + 0}; Fy={round(-results['Fy'], 1) + 0}")
 
-        # Pritando as forças internas dos elementos
+        # Printando as forças internas dos elementos
+        print("\nForças internas:")
         results = ss.get_element_results()
         for e in results:
             alpha = e['alpha']
@@ -139,7 +158,14 @@ def main() -> None:
             Fx = N * math.cos(alpha)
             Fy = N * math.sin(alpha)
 
-            print(f"{round(Fx, 1) + 0}; {round(Fy, 1) + 0}; {round(-N, 1) + 0}")
-            
+            print(f"  Elemento {e['id']}: Fx={round(Fx, 1) + 0}; Fy={round(Fy, 1) + 0}; N={round(-N, 1) + 0}")
+
+        # Printando os deslocamentos nos nós
+        print("\nDeslocamentos:")
+        for i in range(1, vertices_num + 1):
+            displacement = ss.get_node_displacements(i)
+            print(f"  Nó {i}: dx={displacement['ux']:.5f}; dy={displacement['uy']:.5f}")
+
+
 if __name__ == "__main__":
     main()
