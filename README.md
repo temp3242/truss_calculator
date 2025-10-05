@@ -14,6 +14,17 @@ Este código calcula as forças de reação em apoios não livres e as forças i
 ## Rodando o programa
     .venv/bin/python src/main.py
 
+## Formato do arquivo de especificações
+    "Nome do nó"; Coordenada x; Coordenada y;
+    (Repete para todos os nós)
+    Matriz de adjacência (0 = sem ligação, 1 = ligação);
+    (Repete para todas as linhas da matriz, onde cada linha é um nó)
+    Componente X da Força aplicada no nó; Componente Y da Força aplicada no nó; (Ambos em N)
+    (Repete para todos os nós)
+    Tipo de apoio do nó (P = Pino, N = Livre, X = Engaste, Y = Rolamento);
+    (Repete para todos os nós)
+    Módulo de elasticidade do material dos elementos (em Pa); Diâmetro dos elementos (em m);
+
 ## Membros
 - ### Arthur Gaudêncio Odebrecht Stern
 - ### Gabriel Araújo da Silva Domingos Ferreira

@@ -15,11 +15,37 @@ import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from PIL.ImImagePlugin import SCALE
 from anastruct import SystemElements, Vertex
-from matplotlib.pyplot import annotate
 
+SCALE = 100  # Fator de escala para visualizações
 OUTPUT = True  # Set to False to skip creating visualizations
 path = Path(__file__).parent.parent.resolve()
+
+def format_number(n):
+    if not isinstance(n, (int, float)):
+        return str(n)
+    magnitudes = [
+        (1_000_000_000_000, 'T'),
+        (1_000_000_000, 'G'),
+        (1_000_000, 'M'),
+        (1_000, 'k'),
+        (1, ''),
+        (0.01, 'c'),
+        (0.001, 'm'),
+        (0.000_001, 'u'),
+        (0.000_000_001, 'n'),
+        (0.000_000_000_001, 'p'),
+    ]
+    for value, suffix in magnitudes:
+        if n >= value:
+            formatted_n = round(n / value, 2)
+            if formatted_n % 1 == 0:
+                return f"{int(formatted_n)} {suffix}"
+            else:
+                return f"{formatted_n} {suffix}"
+    return str(int(n))
+
 
 def ensure_out_dir(enabled: bool) -> None:
     if enabled:
@@ -40,6 +66,7 @@ def read_vertices(f, count: int) -> tuple[list[Vertex], list[str]]:
         params = f.readline().rstrip().split("; ")
         labels.append(params[0])
         vertices.append(Vertex(float(params[1]), float(params[2])))
+
     return vertices, labels
 
 
@@ -88,12 +115,20 @@ def main() -> None:
 
         # Lendo as especificações do material
         line = f.readlines()
-        young_modulus = float(line[vertices_num * 3])
-        diameter = float(line[vertices_num * 3 + 1])
+        young_modulus = float(line[len(line) - 2].rstrip())
+        diameter = float(line[len(line) - 1].rstrip())
         cross_section_area = math.pi * (diameter / 2) ** 2
         ea = young_modulus * cross_section_area
-        moment_of_inertia = (math.pi / 4) * (diameter / 2)**4
-        ei = young_modulus * moment_of_inertia
+        print(f"Módulo de Young: {format_number(young_modulus)}Pa")
+        print(f"Diâmetro: {format_number(diameter)}m")
+        print(f"Area da seção transversal: {format_number(cross_section_area)}m^2")
+        print(f"EA: {format_number(ea)}N")
+
+        # Cálculo do momento de inércia e EI (Não utilizado em treliças)
+        # moment_of_inertia = (math.pi / 4) * (diameter / 2)**4
+        # ei = young_modulus * moment_of_inertia
+        # print(f"Moment of Inertia: {moment_of_inertia} m^4")
+        # print(f"EI: {ei} N·m²\n")
 
         # Criando os elementos (ligações entre os nós)
         # (nesse caso, os elemento são do tipo treliça, pois não há tranmissão de momento)
@@ -105,7 +140,7 @@ def main() -> None:
 
         for v in vertices:
             node_ids.append(ss.find_node_id(v))
-
+            
         # Adicionando as forças nos nós
         for i in range(vertices_num):
             force_line = list(map(float, line[i + vertices_num].rstrip().split('; ')))
@@ -160,7 +195,7 @@ def main() -> None:
             plt.close('all')
 
             # Deslocamento
-            ss.show_displacement(show=False)
+            ss.show_displacement(show=False, factor=SCALE)  # fator de escala para melhor visualização
             ax = plt.gca()
             add_node_labels(ax, vertices, labels)
             plt.title('Deslocamento')
@@ -174,12 +209,15 @@ def main() -> None:
             plt.title('Deformação (Momento Fletor)')
             plt.savefig(out_folder + '/deformacao.png')
             plt.close('all')
-
+            
+        
+        temp_labels = [x for _, x in sorted(zip(node_ids, labels))]
+        print(temp_labels)
         # Printando as forças nos nós/apoios não-livres
         print("Forças de reação:")
         for v in non_free_pins:
             results = ss.get_node_results_system(v)
-            print(f"  Nó {v}: Fx={round(-results['Fx'], 1) + 0}; Fy={round(-results['Fy'], 1) + 0}")
+            print(f"  Nó {temp_labels[v-1]}: Fx={round(-results['Fx'], 1) + 0}; Fy={round(-results['Fy'], 1) + 0}")
 
         # Printando as forças internas dos elementos
         print("\nForças internas:")
@@ -196,8 +234,9 @@ def main() -> None:
         # Printando os deslocamentos nos nós
         print("\nDeslocamentos:")
         for i in range(1, vertices_num + 1):
-            displacement = ss.get_node_displacements(i)
-            print(f"  Nó {labels[i-1]}: dx={displacement['ux']:.5f}; dy={displacement['uy']:.5f}")
+            id = node_ids[i - 1]
+            displacement = ss.get_node_displacements(id)
+            print(f"  Nó {temp_labels[id-1]}: dx={displacement['ux']*SCALE:.5f}; dy={displacement['uy']*SCALE:.5f}")
 
 
 if __name__ == "__main__":
