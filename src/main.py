@@ -14,7 +14,6 @@ import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from PIL.ImImagePlugin import SCALE
 from anastruct import SystemElements, Vertex
 
 SCALE = 100  # Fator de escala para visualizações
