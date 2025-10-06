@@ -1,4 +1,3 @@
-# python
 # Truss Calculator
 #
 # Por: Arthur Gaudêncio, Francisco Manuel, Gabriel Araújo, José Arthur e Rawlyson Macedo
@@ -69,13 +68,27 @@ def read_vertices(f, count: int) -> tuple[list[Vertex], list[str]]:
 
     return vertices, labels
 
-
 def add_node_labels(ax, vertices: list[Vertex], labels: list[str]) -> None:
-    # Hide anaStruct default numeric node labels if present
+    # Compute a dynamic tolerance in data units
+    x0, x1 = ax.get_xlim()
+    y0, y1 = ax.get_ylim()
+    tol = 0.02 * max(abs(x1 - x0), abs(y1 - y0))  # ~2% of the plot size
+
+    def near_any_node(x: float, y: float) -> bool:
+        for v in vertices:
+            if math.hypot(x - v.x, y - v.y) <= tol:
+                return True
+        return False
+
+    # Hide only default numeric node labels placed at/near node positions
     for t in list(ax.texts):
         txt = t.get_text().strip()
-        if txt.isdigit():
+        if not txt.isdigit():
+            continue
+        tx, ty = t.get_position()
+        if near_any_node(tx, ty):
             t.set_visible(False)
+
     # Overlay custom labels at node coordinates
     for v, lab in zip(vertices, labels):
         ax.annotate(
@@ -88,6 +101,40 @@ def add_node_labels(ax, vertices: list[Vertex], labels: list[str]) -> None:
             bbox=dict(fc="white", ec="none", alpha=0.8, pad=0.5),
             zorder=10,
         )
+
+def add_missing_element_labels(ax, vertices: list[Vertex], elements: list[tuple[int, int, int]]) -> None:
+    # Add element id labels only if none are present near their midpoints
+    x0, x1 = ax.get_xlim()
+    y0, y1 = ax.get_ylim()
+    tol = 0.03 * max(abs(x1 - x0), abs(y1 - y0))  # ~3% of plot size
+
+    def has_digit_label_near(x: float, y: float) -> bool:
+        for t in ax.texts:
+            txt = t.get_text().strip()
+            if not txt.isdigit():
+                continue
+            tx, ty = t.get_position()
+            if math.hypot(tx - x, ty - y) <= tol:
+                return True
+        return False
+
+    for i, j, eid in elements:
+        vi, vj = vertices[i], vertices[j]
+        mx, my = (vi.x + vj.x) * 0.5, (vi.y + vj.y) * 0.5
+        if not has_digit_label_near(mx, my):
+            ax.annotate(
+                str(eid),
+                (mx, my),
+                xytext=(0, 0),
+                textcoords="offset points",
+                fontsize=9,
+                color="black",
+                bbox=dict(fc="white", ec="none", alpha=0.8, pad=0.3),
+                ha="center",
+                va="center",
+                zorder=10,
+            )
+
 
 ss = SystemElements()
 
@@ -113,6 +160,7 @@ def main() -> None:
         # Criando os nós (vértices) e rótulos
         vertices, labels = read_vertices(f, vertices_num)
 
+
         # Lendo as especificações do material
         line = f.readlines()
         young_modulus = float(line[len(line) - 2].rstrip())
@@ -132,12 +180,16 @@ def main() -> None:
 
         # Criando os elementos (ligações entre os nós)
         # (nesse caso, os elemento são do tipo treliça, pois não há tranmissão de momento)
+        elements: list[tuple[int, int, int]] = []
+        eid = 1
         for i in range(vertices_num):
             connections = list(map(int, line[i].rstrip().split('; ')))
             for j in range(i + 1, vertices_num):
                 if connections[j] == 1:
                     ss.add_truss_element([vertices[i], vertices[j]], EA=ea)
-
+                    elements.append((i, j, eid))
+                    eid += 1
+                    
         for v in vertices:
             node_ids.append(ss.find_node_id(v))
             
@@ -171,7 +223,7 @@ def main() -> None:
             out_folder = os.path.join(path, "out")
 
             # Estrutura
-            ss.show_structure(show=False)
+            ss.show_structure(show=False, annotations=True)
             ax = plt.gca()
             add_node_labels(ax, vertices, labels)
             plt.title('Estrutura')
@@ -182,6 +234,7 @@ def main() -> None:
             ss.show_reaction_force(show=False)
             ax = plt.gca()
             add_node_labels(ax, vertices, labels)
+            add_missing_element_labels(ax, vertices, elements)
             plt.title('Forças de Reação')
             plt.savefig(out_folder + '/reacao.png')
             plt.close('all')
@@ -190,6 +243,7 @@ def main() -> None:
             ss.show_axial_force(show=False)
             ax = plt.gca()
             add_node_labels(ax, vertices, labels)
+            add_missing_element_labels(ax, vertices, elements)
             plt.title('Forças axiais')
             plt.savefig(out_folder + '/forcas_axiais.png')
             plt.close('all')
@@ -198,6 +252,7 @@ def main() -> None:
             ss.show_displacement(show=False, factor=SCALE)  # fator de escala para melhor visualização
             ax = plt.gca()
             add_node_labels(ax, vertices, labels)
+            add_missing_element_labels(ax, vertices, elements)
             plt.title('Deslocamento')
             plt.savefig(out_folder + '/deslocamento.png')
             plt.close('all')
@@ -206,13 +261,13 @@ def main() -> None:
             ss.show_bending_moment(show=False)
             ax = plt.gca()
             add_node_labels(ax, vertices, labels)
+            add_missing_element_labels(ax, vertices, elements)
             plt.title('Deformação (Momento Fletor)')
             plt.savefig(out_folder + '/deformacao.png')
             plt.close('all')
             
         
         temp_labels = [x for _, x in sorted(zip(node_ids, labels))]
-        print(temp_labels)
         # Printando as forças nos nós/apoios não-livres
         print("Forças de reação:")
         for v in non_free_pins:
